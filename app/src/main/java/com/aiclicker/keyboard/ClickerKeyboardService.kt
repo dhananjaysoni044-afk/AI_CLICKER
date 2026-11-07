@@ -32,6 +32,11 @@ class ClickerKeyboardService : InputMethodService() {
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var spaceRepeatActive = false
     private var spaceRepeatRunnable: Runnable? = null
+    private var enterRepeatActive = false
+    private var enterRepeatRunnable: Runnable? = null
+    private val clickerPrefs by lazy { getSharedPreferences("aiclicker_settings", Context.MODE_PRIVATE) }
+    private var enterPressCount = 10
+    private var enterPressesPerSecond = 2
     private val clipboardItems = mutableListOf<ClipboardEntry>()
     private lateinit var clipboardManager: ClipboardManager
     private data class ClipboardEntry(val text: String, val time: Long, var pinned: Boolean)
@@ -56,6 +61,8 @@ class ClickerKeyboardService : InputMethodService() {
         }
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         loadClipboard()
+        enterPressCount = clickerPrefs.getInt("enter_count", 10).coerceIn(1, 1000)
+        enterPressesPerSecond = clickerPrefs.getInt("enter_speed", 2).coerceIn(1, 20)
         clipboardManager.addPrimaryClipChangedListener(clipboardListener)
         val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         listOf("AI", "Clipboard", "😊", "GIF").forEach { label ->
@@ -138,13 +145,14 @@ class ClickerKeyboardService : InputMethodService() {
         val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         listOf(if (symbols) "ABC" else "?123", ",", "🌐", "␠ SPACE • 5/s", ".", "↵").forEach { label ->
             val isSpace = label.startsWith("␠")
-            bottom.addView(chip(label, if (isSpace) accent else key, if (isSpace) 12f else 14f) {
+            val isEnter = label == "↵"
+            bottom.addView(chip(label, if (isEnter) accent else key, if (isSpace) 12f else 14f) {
                 when {
                     label == "?123" -> { symbols = true; showKeyboard() }
                     label == "ABC" -> { symbols = false; showKeyboard() }
                     label == "🌐" -> (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
                     isSpace -> toggleSpaceRepeat()
-                    label == "↵" -> commit("\\n")
+                    isEnter -> toggleEnterRepeat()
                     else -> commit(label)
                 }
             }, LinearLayout.LayoutParams(0, dp(if (landscape) 38 else 46), if (isSpace) 3f else 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
@@ -265,6 +273,7 @@ class ClickerKeyboardService : InputMethodService() {
         clipboardItems.removeAll { !it.pinned && now - it.time >= expiryMs }
         saveClipboard()
         val p = panel("CLIPBOARD • 24H AUTO-SAVE • PIN TO KEEP")
+        p.addView(chip("↵ ENTER AUTO-PRESS SETTINGS", accent, 11f) { showEnterSettings() }, LinearParams(-1, 32))
         if (clipboardItems.isEmpty()) {
             p.addView(TextView(this).apply {
                 text = "Copied text will appear here while AI CLICKER keyboard is active."
@@ -307,13 +316,90 @@ class ClickerKeyboardService : InputMethodService() {
         }, LinearParams(-1, 30))
     }
 
+    private fun showEnterSettings() {
+        val p = panel("ENTER AUTO-PRESS SETTINGS")
+        p.addView(TextView(this).apply { text = "Total Enter presses (1–1000)"; textSize = 12f; setTextColor(textColor) }, LinearParams(-1, 24))
+        val countInput = EditText(this).apply {
+            setText(enterPressCount.toString()); inputType = InputType.TYPE_CLASS_NUMBER
+            setTextColor(textColor); textSize = 16f; setPadding(dp(8), 0, dp(8), 0)
+            background = GradientDrawable().apply { setColor(key); cornerRadius = dp(7).toFloat() }
+        }
+        p.addView(countInput, LinearParams(-1, 40))
+        p.addView(TextView(this).apply { text = "Enter presses per second (1–20)"; textSize = 12f; setTextColor(textColor) }, LinearParams(-1, 24))
+        val speedInput = EditText(this).apply {
+            setText(enterPressesPerSecond.toString()); inputType = InputType.TYPE_CLASS_NUMBER
+            setTextColor(textColor); textSize = 16f; setPadding(dp(8), 0, dp(8), 0)
+            background = GradientDrawable().apply { setColor(key); cornerRadius = dp(7).toFloat() }
+        }
+        p.addView(speedInput, LinearParams(-1, 40))
+        p.addView(chip("SAVE SETTINGS", accent, 12f) {
+            val count = countInput.text.toString().toIntOrNull()
+            val speed = speedInput.text.toString().toIntOrNull()
+            if (count == null || speed == null || count !in 1..1000 || speed !in 1..20) {
+                status.text = "Enter count 1–1000 and speed 1–20"
+            } else {
+                enterPressCount = count
+                enterPressesPerSecond = speed
+                clickerPrefs.edit().putInt("enter_count", count).putInt("enter_speed", speed).apply()
+                status.text = "Saved: $count Enter presses at $speed per second"
+                showClipboard()
+            }
+        }, LinearParams(-1, 36))
+        p.addView(TextView(this).apply {
+            text = "Tap the blue ↵ key to start; tap again to stop."
+            textSize = 11f; setTextColor(0xFFD0C8DA.toInt()); gravity = Gravity.CENTER
+        }, LinearParams(-1, 30))
+    }
+
+    private fun toggleEnterRepeat() {
+        if (enterRepeatActive) {
+            stopEnterRepeat()
+            status.text = "Enter auto-press stopped"
+            return
+        }
+        if (currentInputConnection == null) {
+            status.text = "Select a text field first"
+            return
+        }
+        enterRepeatActive = true
+        var completed = 0
+        status.text = "Sending Enter • $enterPressCount presses • $enterPressesPerSecond/sec"
+        val task = object : Runnable {
+            override fun run() {
+                if (!enterRepeatActive) return
+                val connection = currentInputConnection
+                if (connection == null) {
+                    stopEnterRepeat()
+                    status.text = "Enter auto-press stopped • no active field"
+                    return
+                }
+                connection.commitText("\\n", 1)
+                completed++
+                if (completed >= enterPressCount) {
+                    stopEnterRepeat()
+                    status.text = "Finished $completed Enter presses"
+                } else repeatHandler.postDelayed(this, (1000L / enterPressesPerSecond).coerceAtLeast(1L))
+            }
+        }
+        enterRepeatRunnable = task
+        repeatHandler.post(task)
+    }
+
+    private fun stopEnterRepeat() {
+        enterRepeatActive = false
+        enterRepeatRunnable?.let { repeatHandler.removeCallbacks(it) }
+        enterRepeatRunnable = null
+    }
+
     override fun onFinishInputView(finishingInput: Boolean) {
         stopSpaceRepeat()
+        stopEnterRepeat()
         super.onFinishInputView(finishingInput)
     }
 
     override fun onDestroy() {
         stopSpaceRepeat()
+        stopEnterRepeat()
         if (::clipboardManager.isInitialized) clipboardManager.removePrimaryClipChangedListener(clipboardListener)
         repeatHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
