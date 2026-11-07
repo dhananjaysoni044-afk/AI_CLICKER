@@ -5,167 +5,221 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.inputmethodservice.InputMethodService
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
-import android.view.inputmethod.InputConnection
+import android.content.res.Configuration
+import android.text.InputType
+import android.view.Gravity
+import android.view.View
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 
 class ClickerKeyboardService : InputMethodService() {
-    private val handler = Handler(Looper.getMainLooper())
-    private var running = false
-    private var startedAt = 0L
-    private var durationMs = 5000L
-    private var intervalMs = 150L
-    private var selectedKey = "a"
-    private var clickCount = 0
+    private lateinit var root: LinearLayout
+    private lateinit var content: LinearLayout
+    private lateinit var status: TextView
     private var shifted = false
     private var symbols = false
-    private lateinit var status: TextView
-    private lateinit var keyInput: EditText
-    private lateinit var durationInput: EditText
-    private lateinit var speedInput: EditText
-    private val keyBg = 0xFF30283F.toInt()
-    private val accent = 0xFFB99AFF.toInt()
+    private var savedText = ""
+    private val bg = 0xFF171421.toInt()
+    private val key = 0xFF302A3D.toInt()
+    private val accent = 0xFF8E75FF.toInt()
+    private val textColor = Color.WHITE
+    private val landscape get() = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    override fun onCreateInputView(): android.view.View {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(5,7,5,8); setBackgroundColor(0xFF15121F.toInt()) }
-        val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    override fun onCreateInputView(): View {
+        val barHeight = if (landscape) 38 else 44
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(4))
+            setBackgroundColor(bg)
+            minimumHeight = dp(if (landscape) 150 else 245)
+        }
+        val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         listOf("AI", "Clipboard", "Clicker", "😊", "GIF").forEach { label ->
-            toolbar.addView(makeButton(label, 11f) {
+            toolbar.addView(chip(label, if (label == "Clicker") accent else key, 11f) {
                 when (label) {
-                    "AI" -> showLocalTools(root)
+                    "AI" -> showTools()
                     "Clipboard" -> pasteClipboard()
-                    "Clicker" -> showClicker(root)
-                    "😊" -> showEmoji(root)
+                    "Clicker" -> showSavedText()
+                    "😊" -> showEmoji()
                     "GIF" -> openGifSearch()
                 }
-            }, LinearLayout.LayoutParams(0,48,1f))
+            }, LinearParams(0, barHeight, 1f))
         }
         root.addView(toolbar)
-        renderKeys(root)
-        status = TextView(this).apply { text = "AI Clicker • Ready"; textSize = 11f; setTextColor(0xFFBDB2D0.toInt()); setPadding(8,4,0,0) }
-        root.addView(status)
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        root.addView(content, LinearParams(-1, 0, 1f))
+        status = TextView(this).apply {
+            text = "AI CLICKER  •  Ready"
+            textSize = 10f
+            setTextColor(0xFFBDB5CD.toInt())
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(5), 0, 0, 0)
+        }
+        root.addView(status, LinearParams(-1, dp(18)))
+        showKeyboard()
         return root
     }
 
-    private fun renderKeys(root: LinearLayout) {
-        while (root.childCount > 1) root.removeViewAt(1)
-        val rows = if (symbols) listOf("1234567890", "@#$%&-*+()", "!?:;'/\"") else listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
-        rows.forEachIndexed { index, chars ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            if (index == 2) row.addView(makeButton(if (shifted) "⇧●" else "⇧", 14f) { shifted = !shifted; renderKeys(root) }, LinearLayout.LayoutParams(0,47,1f))
-            chars.forEach { ch ->
-                val value = if (!symbols && shifted) ch.uppercaseChar().toString() else ch.toString()
-                row.addView(makeButton(value,16f) { commit(value); if (shifted) { shifted = false; renderKeys(root) } }, LinearLayout.LayoutParams(0,47,1f).apply { setMargins(2,3,2,3) })
+    private fun LinearParams(w: Int, h: Int, weight: Float = 0f) =
+        LinearLayout.LayoutParams(w, if (h == 0) 0 else dp(h), weight)
+
+    private fun chip(label: String, color: Int = key, size: Float = 15f, action: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = size
+            setTextColor(textColor)
+            gravity = Gravity.CENTER
+            typeface = Typeface.DEFAULT_BOLD
+            background = GradientDrawable().apply {
+                setColor(color)
+                cornerRadius = dp(8).toFloat()
             }
-            if (index == 2) row.addView(makeButton("⌫",15f) { currentInputConnection?.deleteSurroundingText(1,0) }, LinearLayout.LayoutParams(0,47,1f))
-            root.addView(row)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { action() }
+            setPadding(dp(2), 0, dp(2), 0)
         }
-        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(if (symbols) "ABC" else "?123", ",", "🌐", "space", ".", "↵").forEach { k ->
-            bottom.addView(makeButton(k,14f) {
-                when(k) {
-                    "?123" -> { symbols = true; renderKeys(root) }
-                    "ABC" -> { symbols = false; renderKeys(root) }
-                    "space" -> commit(" ")
-                    "↵" -> commit("\n")
-                    "🌐" -> (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
-                    else -> commit(k)
-                }
-            }, LinearLayout.LayoutParams(0,48,if(k == "space") 4f else 1f))
+
+    private fun addRow(parent: LinearLayout, labels: List<String>, height: Int, action: (String) -> Unit) {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        labels.forEach { label ->
+            val view = chip(label, size = if (label.length > 1) 13f else 17f) { action(label) }
+            val lp = LinearLayout.LayoutParams(0, dp(height), 1f)
+            lp.setMargins(dp(2), dp(2), dp(2), dp(2))
+            row.addView(view, lp)
         }
-        root.addView(bottom)
+        parent.addView(row)
     }
 
-    private fun makeButton(label: String, size: Float, action: () -> Unit) = Button(this).apply {
-        text = label; textSize = size; isAllCaps = false; setTextColor(Color.WHITE); setPadding(0,0,0,0)
-        setBackgroundTintList(android.content.res.ColorStateList.valueOf(keyBg)); setOnClickListener { action() }
-    }
-    private fun commit(value: String) { currentInputConnection?.commitText(value,1) }
-    private fun showMessage(value: String) { if (::status.isInitialized) status.text = value }
-    private fun panel(root: LinearLayout): LinearLayout {
-        if (root.childCount > 1) root.removeViewAt(1)
-        return LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(8,8,8,8); setBackgroundColor(0xFF211B2D.toInt()); root.addView(this,1) }
-    }
-    private fun showClicker(root: LinearLayout) {
-        val p = panel(root)
-        p.addView(TextView(this).apply { text = "CLICKER • Repeat into the focused text field"; setTextColor(accent); textSize = 14f })
-        keyInput = EditText(this).apply { setSingleLine(); hint = "Selected key or emoji"; setText(selectedKey); setTextColor(Color.WHITE) }
-        durationInput = EditText(this).apply { setSingleLine(); hint = "Duration in seconds (1–300)"; inputType = 2; setText("5"); setTextColor(Color.WHITE) }
-        speedInput = EditText(this).apply { setSingleLine(); hint = "Delay between clicks in ms (min 50)"; inputType = 2; setText("150"); setTextColor(Color.WHITE) }
-        p.addView(keyInput); p.addView(durationInput); p.addView(speedInput)
-        val actions = LinearLayout(this)
-        actions.addView(makeButton("START",14f) { startRepeating() }, LinearLayout.LayoutParams(0,48,1f))
-        actions.addView(makeButton("STOP",14f) { stopRepeating("Stopped by you") }, LinearLayout.LayoutParams(0,48,1f))
-        p.addView(actions)
-        p.addView(TextView(this).apply { text = "Only inserts text in the active field. It never presses Send or submits a form."; textSize = 11f; setTextColor(0xFFD1C6E0.toInt()) })
-    }
-    private fun startRepeating() {
-        stopRepeating("")
-        selectedKey = keyInput.text.toString().ifBlank { "a" }
-        durationMs = (durationInput.text.toString().toLongOrNull() ?: 5L).coerceIn(1,300) * 1000L
-        intervalMs = (speedInput.text.toString().toLongOrNull() ?: 150L).coerceAtLeast(50L)
-        startedAt = System.currentTimeMillis(); clickCount = 0; running = true
-        val task = object : Runnable {
-            override fun run() {
-                if (!running) return
-                val elapsed = System.currentTimeMillis() - startedAt
-                if (elapsed >= durationMs) { stopRepeating("Finished • " + clickCount + " insertions"); return }
-                val connection: InputConnection? = currentInputConnection
-                if (connection == null) { stopRepeating("No focused text field"); return }
-                connection.commitText(selectedKey,1); clickCount++
-                status.text = "Running • " + clickCount + " insertions • " + ((durationMs - elapsed) / 1000) + "s left"
-                handler.postDelayed(this, intervalMs)
+    private fun showKeyboard() {
+        content.removeAllViews()
+        val h = if (landscape) 34 else 46
+        if (!symbols) {
+            addRow(content, "qwertyuiop".map { it.toString() }, h) { typeKey(it) }
+            addRow(content, "asdfghjkl".map { it.toString() }, h) { typeKey(it) }
+            val third = listOf("⇧") + "zxcvbnm".map { it.toString() } + "⌫"
+            addRow(content, third, h) {
+                when (it) {
+                    "⇧" -> { shifted = !shifted; showKeyboard() }
+                    "⌫" -> currentInputConnection?.deleteSurroundingText(1, 0)
+                    else -> typeKey(it)
+                }
+            }
+        } else {
+            addRow(content, "1234567890".map { it.toString() }, h) { typeKey(it) }
+            addRow(content, listOf("@","#","$","%","&","-","+","(",")","/"), h) { typeKey(it) }
+            addRow(content, listOf("ABC","*",""",":",";","!","?","'","⌫"), h) {
+                when (it) { "ABC" -> { symbols = false; showKeyboard() }; "⌫" -> currentInputConnection?.deleteSurroundingText(1,0); else -> typeKey(it) }
             }
         }
-        handler.post(task)
+        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        listOf(if (symbols) "ABC" else "?123", ",", "🌐", "space", ".", "↵").forEach { label ->
+            bottom.addView(chip(label, size = 13f) {
+                when (label) {
+                    "?123" -> { symbols = true; showKeyboard() }
+                    "ABC" -> { symbols = false; showKeyboard() }
+                    "🌐" -> (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+                    "space" -> commit(" ")
+                    "↵" -> commit("\n")
+                    else -> commit(label)
+                }
+            }, LinearLayout.LayoutParams(0, dp(if (landscape) 36 else 43), if (label == "space") 3f else 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
+        }
+        content.addView(bottom)
     }
-    private fun stopRepeating(message: String) {
-        running = false
-        handler.removeCallbacksAndMessages(null)
-        if (message.isNotBlank() && ::status.isInitialized) status.text = message
+
+    private fun typeKey(value: String) {
+        val output = if (shifted && !symbols) value.uppercase() else value
+        commit(output)
+        if (shifted) { shifted = false; showKeyboard() }
     }
+
+    private fun commit(value: String) { currentInputConnection?.commitText(value, 1) }
+
+    private fun panel(title: String): LinearLayout {
+        content.removeAllViews()
+        val p = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(5), dp(3), dp(5), dp(3))
+        }
+        p.addView(TextView(this).apply {
+            text = title; textSize = 13f; setTextColor(0xFFBFAEFF.toInt())
+            gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD
+        }, LinearParams(-1, 25))
+        content.addView(p, LinearParams(-1, -1))
+        p.addView(chip("← Keyboard", accent, 12f) { showKeyboard() }, LinearParams(-1, 34))
+        return p
+    }
+
+    private fun showSavedText() {
+        val p = panel("SAVED TEXT • Insert into the active field")
+        val field = EditText(this).apply {
+            setText(savedText); hint = "Type or paste your comment/text here"
+            setTextColor(Color.WHITE); setHintTextColor(0xFFAAA2B8.toInt())
+            textSize = 14f; minLines = 1; maxLines = 3
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+        }
+        p.addView(field, LinearParams(-1, if (landscape) 42 else 54))
+        p.addView(chip("INSERT TEXT ONCE", accent, 13f) {
+            savedText = field.text.toString()
+            if (savedText.isNotBlank()) {
+                val ok = currentInputConnection?.commitText(savedText, 1) ?: false
+                status.text = if (ok) "Text inserted • Send manually" else "No active text field"
+            } else status.text = "Enter text first"
+        }, LinearParams(-1, 38))
+        p.addView(TextView(this).apply {
+            text = "Text stays on this device. This inserts once; it does not press Send or post comments."
+            textSize = 10f; setTextColor(0xFFD0C8DA.toInt()); gravity = Gravity.CENTER
+        }, LinearParams(-1, 30))
+    }
+
+    private fun showTools() {
+        val p = panel("OFFLINE TEXT TOOLS")
+        fun tool(label: String, transform: (String) -> String) {
+            p.addView(chip(label) {
+                val ic = currentInputConnection ?: return@chip
+                val before = ic.getTextBeforeCursor(500, 0)?.toString().orEmpty()
+                if (before.isNotEmpty()) {
+                    ic.deleteSurroundingText(before.length, 0)
+                    ic.commitText(transform(before), 1)
+                } else status.text = "Type some text first"
+            }, LinearParams(-1, 34))
+        }
+        tool("Capitalize sentence") { it.replaceFirstChar { c -> c.uppercase() } }
+        tool("Add full stop") { if (it.endsWith(".") || it.endsWith("!") || it.endsWith("?")) it else "$it." }
+        tool("UPPERCASE") { it.uppercase() }
+    }
+
+    private fun showEmoji() {
+        val p = panel("EMOJI")
+        listOf("😀","😁","😂","🥹","😊","😎","❤️","✨","🔥","👍","🙌","🎉","🌸","💜","🫶","😅","🤔","😭","🥳","🤩","🙏","💯","🚀","🌙","⭐").chunked(5).forEach { group ->
+            addRow(p, group, if (landscape) 30 else 38) { commit(it) }
+        }
+    }
+
     private fun pasteClipboard() {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip: ClipData? = clipboard.primaryClip
-        if (clip != null && clip.itemCount > 0) commit(clip.getItemAt(0).coerceToText(this).toString()) else showMessage("Clipboard is empty")
+        if (clip != null && clip.itemCount > 0) {
+            commit(clip.getItemAt(0).coerceToText(this).toString())
+            status.text = "Clipboard text pasted"
+        } else status.text = "Clipboard is empty"
     }
-    private fun showEmoji(root: LinearLayout) {
-        val p = panel(root)
-        val emojis = listOf("😀","😁","😂","🥹","😊","😎","❤️","✨","🔥","👍","🙌","🎉","🌸","💜","🫶","😅","🤔","😭","🥳","🤩","🙏","💯","🚀","🌙","⭐")
-        emojis.chunked(5).forEach { group ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            group.forEach { emoji -> row.addView(makeButton(emoji,22f) { commit(emoji) }, LinearLayout.LayoutParams(0,48,1f)) }
-            p.addView(row)
-        }
-    }
+
     private fun openGifSearch() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tenor.com/search/funny-gifs")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            showMessage("Opening GIF search • choose a GIF and copy/paste it")
-        } catch (_: Exception) { showMessage("Could not open GIF search") }
+            status.text = "Opening GIF search"
+        } catch (_: Exception) { status.text = "Could not open GIF search" }
     }
-    private fun showLocalTools(root: LinearLayout) {
-        val p = panel(root)
-        p.addView(TextView(this).apply { text = "OFFLINE SMART TOOLS"; setTextColor(accent); textSize = 14f })
-        fun addTool(label: String, transform: (String) -> String) {
-            p.addView(makeButton(label,13f) {
-                val connection = currentInputConnection ?: return@makeButton
-                val before = connection.getTextBeforeCursor(500,0)?.toString().orEmpty()
-                if (before.isNotEmpty()) { connection.deleteSurroundingText(before.length,0); connection.commitText(transform(before),1) }
-            })
-        }
-        addTool("Capitalize sentence") { it.replaceFirstChar { ch -> ch.uppercase() } }
-        addTool("Add full stop") { if (it.endsWith(".") || it.endsWith("!") || it.endsWith("?")) it else it + "." }
-        addTool("UPPERCASE") { it.uppercase() }
-        p.addView(TextView(this).apply { text = "Basic offline text tools. Real offline generative AI is intentionally left out."; setTextColor(0xFFD1C6E0.toInt()); textSize = 11f })
-    }
-    override fun onFinishInput() { stopRepeating(""); super.onFinishInput() }
-    override fun onDestroy() { stopRepeating(""); super.onDestroy() }
 }
