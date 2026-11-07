@@ -3,11 +3,14 @@ package com.aiclicker.keyboard
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -21,6 +24,8 @@ class ClickerKeyboardService : InputMethodService() {
     private var intervalMs = 150L
     private var selectedKey = "a"
     private var clickCount = 0
+    private var shifted = false
+    private var symbols = false
     private lateinit var status: TextView
     private lateinit var keyInput: EditText
     private lateinit var durationInput: EditText
@@ -38,26 +43,44 @@ class ClickerKeyboardService : InputMethodService() {
                     "Clipboard" -> pasteClipboard()
                     "Clicker" -> showClicker(root)
                     "😊" -> showEmoji(root)
-                    "GIF" -> showMessage("GIF search is not included in this offline MVP")
+                    "GIF" -> openGifSearch()
                 }
             }, LinearLayout.LayoutParams(0,48,1f))
         }
         root.addView(toolbar)
-        listOf("qwertyuiop", "asdfghjkl", "zxcvbnm").forEachIndexed { index, chars ->
+        renderKeys(root)
+        status = TextView(this).apply { text = "AI Clicker • Ready"; textSize = 11f; setTextColor(0xFFBDB2D0.toInt()); setPadding(8,4,0,0) }
+        root.addView(status)
+        return root
+    }
+
+    private fun renderKeys(root: LinearLayout) {
+        while (root.childCount > 1) root.removeViewAt(1)
+        val rows = if (symbols) listOf("1234567890", "@#$%&-*+()", "!?:;'/\"") else listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
+        rows.forEachIndexed { index, chars ->
             val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            if (index == 2) row.addView(makeButton("⇧", 15f) { showMessage("Shift is coming in a future update") }, LinearLayout.LayoutParams(0,47,1f))
-            chars.forEach { ch -> row.addView(makeButton(ch.toString(),17f) { commit(ch.toString()) }, LinearLayout.LayoutParams(0,47,1f).apply { setMargins(2,3,2,3) }) }
+            if (index == 2) row.addView(makeButton(if (shifted) "⇧●" else "⇧", 14f) { shifted = !shifted; renderKeys(root) }, LinearLayout.LayoutParams(0,47,1f))
+            chars.forEach { ch ->
+                val value = if (!symbols && shifted) ch.uppercaseChar().toString() else ch.toString()
+                row.addView(makeButton(value,16f) { commit(value); if (shifted) { shifted = false; renderKeys(root) } }, LinearLayout.LayoutParams(0,47,1f).apply { setMargins(2,3,2,3) })
+            }
             if (index == 2) row.addView(makeButton("⌫",15f) { currentInputConnection?.deleteSurroundingText(1,0) }, LinearLayout.LayoutParams(0,47,1f))
             root.addView(row)
         }
         val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("?123", ",", "🌐", "space", ".", "↵").forEach { k ->
-            bottom.addView(makeButton(k,15f) { when(k) { "space" -> commit(" "); "↵" -> commit("\n"); "🌐" -> requestShowInputMethodPicker(); else -> commit(k) } }, LinearLayout.LayoutParams(0,48,if(k == "space") 4f else 1f))
+        listOf(if (symbols) "ABC" else "?123", ",", "🌐", "space", ".", "↵").forEach { k ->
+            bottom.addView(makeButton(k,14f) {
+                when(k) {
+                    "?123" -> { symbols = true; renderKeys(root) }
+                    "ABC" -> { symbols = false; renderKeys(root) }
+                    "space" -> commit(" ")
+                    "↵" -> commit("\n")
+                    "🌐" -> (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+                    else -> commit(k)
+                }
+            }, LinearLayout.LayoutParams(0,48,if(k == "space") 4f else 1f))
         }
         root.addView(bottom)
-        status = TextView(this).apply { text = "AI Clicker • Ready"; textSize = 11f; setTextColor(0xFFBDB2D0.toInt()); setPadding(8,4,0,0) }
-        root.addView(status)
-        return root
     }
 
     private fun makeButton(label: String, size: Float, action: () -> Unit) = Button(this).apply {
@@ -115,9 +138,18 @@ class ClickerKeyboardService : InputMethodService() {
     }
     private fun showEmoji(root: LinearLayout) {
         val p = panel(root)
-        listOf("😀 😁 😂 🥹 😊 😎 ❤️ ✨ 🔥 👍 🙌 🎉 🌸 💜 🫶", "😅 🤔 😭 🥳 🤩 🙏 💯 🚀 🌙 ⭐").forEach { line ->
-            p.addView(TextView(this).apply { text = line; textSize = 25f; setTextColor(Color.WHITE); setOnClickListener { commit(line.replace(" ","")) } })
+        val emojis = listOf("😀","😁","😂","🥹","😊","😎","❤️","✨","🔥","👍","🙌","🎉","🌸","💜","🫶","😅","🤔","😭","🥳","🤩","🙏","💯","🚀","🌙","⭐")
+        emojis.chunked(5).forEach { group ->
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            group.forEach { emoji -> row.addView(makeButton(emoji,22f) { commit(emoji) }, LinearLayout.LayoutParams(0,48,1f)) }
+            p.addView(row)
         }
+    }
+    private fun openGifSearch() {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://tenor.com/search/funny-gifs")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            showMessage("Opening GIF search • choose a GIF and copy/paste it")
+        } catch (_: Exception) { showMessage("Could not open GIF search") }
     }
     private fun showLocalTools(root: LinearLayout) {
         val p = panel(root)
@@ -132,7 +164,7 @@ class ClickerKeyboardService : InputMethodService() {
         addTool("Capitalize sentence") { it.replaceFirstChar { ch -> ch.uppercase() } }
         addTool("Add full stop") { if (it.endsWith(".") || it.endsWith("!") || it.endsWith("?")) it else it + "." }
         addTool("UPPERCASE") { it.uppercase() }
-        p.addView(TextView(this).apply { text = "Local text utilities only; a generative offline AI model is not bundled yet."; setTextColor(0xFFD1C6E0.toInt()); textSize = 11f })
+        p.addView(TextView(this).apply { text = "Basic offline text tools. Real offline generative AI is intentionally left out."; setTextColor(0xFFD1C6E0.toInt()); textSize = 11f })
     }
     override fun onFinishInput() { stopRepeating(""); super.onFinishInput() }
     override fun onDestroy() { stopRepeating(""); super.onDestroy() }
