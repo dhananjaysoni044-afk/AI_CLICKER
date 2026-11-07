@@ -17,6 +17,9 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.ScrollView
+import org.json.JSONArray
+import org.json.JSONObject
 import android.os.Handler
 import android.os.Looper
 
@@ -24,14 +27,17 @@ class ClickerKeyboardService : InputMethodService() {
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
     private lateinit var status: TextView
-    private var shifted = false
+    private var capsLock = false
     private var symbols = false
-    private var savedText = ""
-    private var lastInsertedText = ""
     private val repeatHandler = Handler(Looper.getMainLooper())
-    private var repeatActive = false
-    private var repeatRunnable: Runnable? = null
-    private var repeatButtonLabel: TextView? = null
+    private var spaceRepeatActive = false
+    private var spaceRepeatRunnable: Runnable? = null
+    private val clipboardItems = mutableListOf<ClipboardEntry>()
+    private lateinit var clipboardManager: ClipboardManager
+    private data class ClipboardEntry(val text: String, val time: Long, var pinned: Boolean)
+    private val clipboardListener = ClipboardManager.OnPrimaryClipChangedListener { captureClipboard() }
+    private val clipboardPrefs by lazy { getSharedPreferences("aiclicker_clipboard", Context.MODE_PRIVATE) }
+    private val expiryMs = 24L * 60L * 60L * 1000L
     private val bg = 0xFF171421.toInt()
     private val key = 0xFF302A3D.toInt()
     private val accent = 0xFF8E75FF.toInt()
@@ -48,13 +54,15 @@ class ClickerKeyboardService : InputMethodService() {
             setBackgroundColor(bg)
             minimumHeight = dp(if (landscape) 150 else 245)
         }
+        clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        loadClipboard()
+        clipboardManager.addPrimaryClipChangedListener(clipboardListener)
         val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        listOf("AI", "Clipboard", "Clicker", "😊", "GIF").forEach { label ->
-            toolbar.addView(chip(label, if (label == "Clicker") accent else key, 11f) {
+        listOf("AI", "Clipboard", "😊", "GIF").forEach { label ->
+            toolbar.addView(chip(label, if (label == "Clipboard") accent else key, 12f) {
                 when (label) {
                     "AI" -> showTools()
-                    "Clipboard" -> pasteClipboard()
-                    "Clicker" -> showSavedText()
+                    "Clipboard" -> showClipboard()
                     "😊" -> showEmoji()
                     "GIF" -> openGifSearch()
                 }
@@ -98,7 +106,7 @@ class ClickerKeyboardService : InputMethodService() {
     private fun addRow(parent: LinearLayout, labels: List<String>, height: Int, action: (String) -> Unit) {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         labels.forEach { label ->
-            val view = chip(label, size = if (label.length > 1) 13f else 17f) { action(label) }
+            val view = chip(label, size = if (label.length > 1) 15f else 21f) { action(label) }
             val lp = LinearLayout.LayoutParams(0, dp(height), 1f)
             lp.setMargins(dp(2), dp(2), dp(2), dp(2))
             row.addView(view, lp)
@@ -115,7 +123,7 @@ class ClickerKeyboardService : InputMethodService() {
             val third = listOf("⇧") + "zxcvbnm".map { it.toString() } + "⌫"
             addRow(content, third, h) {
                 when (it) {
-                    "⇧" -> { shifted = !shifted; showKeyboard() }
+                    "⇧" -> { capsLock = !capsLock; showKeyboard() }
                     "⌫" -> currentInputConnection?.deleteSurroundingText(1, 0)
                     else -> typeKey(it)
                 }
@@ -144,9 +152,8 @@ class ClickerKeyboardService : InputMethodService() {
     }
 
     private fun typeKey(value: String) {
-        val output = if (shifted && !symbols) value.uppercase() else value
+        val output = if (capsLock && !symbols) value.uppercase() else value
         commit(output)
-        if (shifted) { shifted = false; showKeyboard() }
     }
 
     private fun commit(value: String) { currentInputConnection?.commitText(value, 1) }
@@ -167,96 +174,147 @@ class ClickerKeyboardService : InputMethodService() {
         return p
     }
 
-    private fun showSavedText() {
-        val p = panel("SAVED TEXT • Insert into the active field")
-        val field = EditText(this).apply {
-            setText(savedText); hint = "Type or paste your comment/text here"
-            setTextColor(Color.WHITE); setHintTextColor(0xFFAAA2B8.toInt())
-            textSize = 14f; minLines = 1; maxLines = 3
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
-            setPadding(dp(8), dp(5), dp(8), dp(5))
+    private fun toggleSpaceRepeat() {
+        if (spaceRepeatActive) {
+            stopSpaceRepeat()
+            status.text = "Space repeat stopped"
+            return
         }
-        p.addView(field, LinearParams(-1, if (landscape) 42 else 54))
-        p.addView(chip("INSERT ONCE", key, 12f) {
-            savedText = field.text.toString()
-            if (savedText.isNotBlank()) {
-                val ok = currentInputConnection?.commitText(savedText, 1) ?: false
-                if (ok) lastInsertedText = savedText
-                status.text = if (ok) "Text inserted once • ERASE LAST available" else "No active text field"
-            } else status.text = "Enter text first"
-        }, LinearParams(-1, 34))
-        p.addView(chip("ERASE LAST INSERTED TEXT", 0xFF8B3547.toInt(), 12f) {
-            val ic = currentInputConnection
-            if (ic == null) {
-                status.text = "Select the same text field first"
-            } else if (lastInsertedText.isBlank()) {
-                status.text = "Nothing to erase yet"
-            } else {
-                ic.deleteSurroundingText(lastInsertedText.length, 0)
-                status.text = "Last inserted text erased"
-                lastInsertedText = ""
-            }
-        }, LinearParams(-1, 34))
-        p.addView(chip("CLEAR SAVED TEXT", 0xFF55445F.toInt(), 12f) {
-            savedText = ""
-            lastInsertedText = ""
-            field.setText("")
-            status.text = "Saved text cleared"
-        }, LinearParams(-1, 32))
-        val repeatButton = chip("START 🔵  •  2/sec", accent, 13f) {
-            savedText = field.text.toString()
-            if (repeatActive) {
-                stopRepeating()
-                repeatButtonLabel?.text = "START 🔵  •  2/sec"
-            } else if (savedText.isBlank()) {
-                status.text = "Enter text first"
-            } else if (currentInputConnection == null) {
-                status.text = "Select a text field first"
-            } else {
-                repeatActive = true
-                repeatButtonLabel?.text = "STOP ■"
-                status.text = "Repeating saved text • 2 times/sec"
-                val task = object : Runnable {
-                    override fun run() {
-                        if (!repeatActive) return
-                        val connection = currentInputConnection
-                        if (connection == null) {
-                            stopRepeating()
-                            repeatButtonLabel?.text = "START 🔵  •  2/sec"
-                            status.text = "Stopped • no active text field"
-                            return
-                        }
-                        connection.commitText(savedText, 1)
-                        lastInsertedText = savedText
-                        repeatHandler.postDelayed(this, 500L)
-                    }
+        if (currentInputConnection == null) {
+            status.text = "Select a text field first"
+            return
+        }
+        spaceRepeatActive = true
+        status.text = "Typing spaces • 5 per second • tap blue SPACE to stop"
+        val task = object : Runnable {
+            override fun run() {
+                if (!spaceRepeatActive) return
+                val connection = currentInputConnection
+                if (connection == null) {
+                    stopSpaceRepeat()
+                    status.text = "Space repeat stopped • no active field"
+                    return
                 }
-                repeatRunnable = task
-                repeatHandler.post(task)
+                connection.commitText(" ", 1)
+                repeatHandler.postDelayed(this, 200L)
             }
         }
-        repeatButtonLabel = repeatButton
-        p.addView(repeatButton, LinearParams(-1, 40))
-        p.addView(TextView(this).apply {
-            text = "Blue button repeats the saved text every 0.5 sec. Press STOP to end. It only types in the selected field; Send stays manual."
-            textSize = 10f; setTextColor(0xFFD0C8DA.toInt()); gravity = Gravity.CENTER
-        }, LinearParams(-1, 34))
+        spaceRepeatRunnable = task
+        repeatHandler.post(task)
     }
 
-    private fun stopRepeating() {
-        repeatActive = false
-        repeatRunnable?.let { repeatHandler.removeCallbacks(it) }
-        repeatRunnable = null
-        status.text = "Repeating stopped"
+    private fun stopSpaceRepeat() {
+        spaceRepeatActive = false
+        spaceRepeatRunnable?.let { repeatHandler.removeCallbacks(it) }
+        spaceRepeatRunnable = null
+    }
+
+    private fun loadClipboard() {
+        clipboardItems.clear()
+        val raw = clipboardPrefs.getString("items", "[]") ?: "[]"
+        try {
+            val array = JSONArray(raw)
+            val now = System.currentTimeMillis()
+            for (i in 0 until array.length()) {
+                val obj = array.optJSONObject(i) ?: continue
+                val text = obj.optString("text")
+                val time = obj.optLong("time")
+                val pinned = obj.optBoolean("pinned")
+                if (text.isNotBlank() && (pinned || now - time < expiryMs)) {
+                    clipboardItems.add(ClipboardEntry(text, time, pinned))
+                }
+            }
+        } catch (_: Exception) { }
+        saveClipboard()
+    }
+
+    private fun saveClipboard() {
+        val array = JSONArray()
+        clipboardItems.forEach { item ->
+            array.put(JSONObject().put("text", item.text).put("time", item.time).put("pinned", item.pinned))
+        }
+        clipboardPrefs.edit().putString("items", array.toString()).apply()
+    }
+
+    private fun captureClipboard() {
+        try {
+            val clip = clipboardManager.primaryClip ?: return
+            if (clip.itemCount == 0) return
+            val copied = clip.getItemAt(0).coerceToText(this)?.toString()?.trim().orEmpty()
+            if (copied.isBlank()) return
+            addClipboardItem(copied)
+        } catch (_: Exception) { }
+    }
+
+    private fun addClipboardItem(value: String) {
+        val now = System.currentTimeMillis()
+        val existing = clipboardItems.firstOrNull { it.text == value }
+        val wasPinned = existing?.pinned ?: false
+        clipboardItems.removeAll { it.text == value }
+        clipboardItems.add(0, ClipboardEntry(value, now, wasPinned))
+        while (clipboardItems.size > 8) {
+            val oldestUnpinned = clipboardItems.indexOfLast { !it.pinned }
+            if (oldestUnpinned >= 0) clipboardItems.removeAt(oldestUnpinned) else break
+        }
+        saveClipboard()
+    }
+
+    private fun showClipboard() {
+        captureClipboard()
+        val now = System.currentTimeMillis()
+        clipboardItems.removeAll { !it.pinned && now - it.time >= expiryMs }
+        saveClipboard()
+        val p = panel("CLIPBOARD • 24H AUTO-SAVE • PIN TO KEEP")
+        if (clipboardItems.isEmpty()) {
+            p.addView(TextView(this).apply {
+                text = "Copied text will appear here while AI CLICKER keyboard is active."
+                textSize = 12f; setTextColor(0xFFD0C8DA.toInt()); gravity = Gravity.CENTER
+            }, LinearParams(-1, 52))
+            return
+        }
+        val scroll = ScrollView(this)
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        clipboardItems.toList().forEach { item ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(2), dp(2), dp(2), dp(2))
+            }
+            val paste = chip((if (item.pinned) "📌 " else "") + item.text.replace("\n", " "), key, 11f) {
+                commit(item.text)
+                status.text = "Clipboard item inserted"
+            }
+            row.addView(paste, LinearLayout.LayoutParams(0, dp(34), 1f))
+            row.addView(chip(if (item.pinned) "UNPIN" else "PIN", accent, 10f) {
+                val index = clipboardItems.indexOfFirst { it.text == item.text }
+                if (index >= 0) clipboardItems[index].pinned = !clipboardItems[index].pinned
+                saveClipboard()
+                showClipboard()
+            }, LinearParams(52, 34))
+            row.addView(chip("✕", 0xFF8B3547.toInt(), 13f) {
+                clipboardItems.removeAll { it.text == item.text }
+                saveClipboard()
+                showClipboard()
+            }, LinearParams(32, 34))
+            list.addView(row)
+        }
+        scroll.addView(list)
+        p.addView(scroll, LinearParams(-1, 0).apply { height = 0; weight = 1f })
+        p.addView(chip("CLEAR ALL UNPINNED", 0xFF55445F.toInt(), 11f) {
+            clipboardItems.removeAll { !it.pinned }
+            saveClipboard()
+            showClipboard()
+        }, LinearParams(-1, 30))
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
-        stopRepeating()
+        stopSpaceRepeat()
         super.onFinishInputView(finishingInput)
     }
 
     override fun onDestroy() {
-        stopRepeating()
+        stopSpaceRepeat()
+        if (::clipboardManager.isInitialized) clipboardManager.removePrimaryClipChangedListener(clipboardListener)
         repeatHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
