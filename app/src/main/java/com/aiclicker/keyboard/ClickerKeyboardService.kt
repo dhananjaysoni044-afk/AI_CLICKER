@@ -373,7 +373,7 @@ class ClickerKeyboardService : InputMethodService() {
                     status.text = "Enter auto-press stopped • no active field"
                     return
                 }
-                connection.commitText("\\n", 1)
+                connection.commitText("\n", 1)
                 completed++
                 if (completed >= enterPressCount) {
                     stopEnterRepeat()
