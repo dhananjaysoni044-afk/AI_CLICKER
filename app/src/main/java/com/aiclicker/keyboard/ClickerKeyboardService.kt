@@ -116,7 +116,7 @@ class ClickerKeyboardService : InputMethodService() {
         } else {
             addRow(content, "1234567890".map { it.toString() }, h) { typeKey(it) }
             addRow(content, listOf("@","#","$","%","&","-","+","(",")","/"), h) { typeKey(it) }
-            addRow(content, listOf("ABC","*",""",":",";","!","?","'","⌫"), h) {
+            addRow(content, listOf("ABC","*","? ",":",";","!","?","apos","⌫"), h) {
                 when (it) { "ABC" -> { symbols = false; showKeyboard() }; "⌫" -> currentInputConnection?.deleteSurroundingText(1,0); else -> typeKey(it) }
             }
         }
