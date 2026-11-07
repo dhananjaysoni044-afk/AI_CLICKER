@@ -120,10 +120,10 @@ class ClickerKeyboardService : InputMethodService() {
         if (!symbols) {
             addRow(content, "qwertyuiop".map { it.toString() }, h) { typeKey(it) }
             addRow(content, "asdfghjkl".map { it.toString() }, h) { typeKey(it) }
-            val third = listOf("⇧") + "zxcvbnm".map { it.toString() } + "⌫"
+            val third = listOf(if (capsLock) "⇪" else "⇧") + "zxcvbnm".map { it.toString() } + "⌫"
             addRow(content, third, h) {
                 when (it) {
-                    "⇧" -> { capsLock = !capsLock; showKeyboard() }
+                    "⇧", "⇪" -> { capsLock = !capsLock; showKeyboard() }
                     "⌫" -> currentInputConnection?.deleteSurroundingText(1, 0)
                     else -> typeKey(it)
                 }
@@ -261,7 +261,6 @@ class ClickerKeyboardService : InputMethodService() {
     }
 
     private fun showClipboard() {
-        captureClipboard()
         val now = System.currentTimeMillis()
         clipboardItems.removeAll { !it.pinned && now - it.time >= expiryMs }
         saveClipboard()
