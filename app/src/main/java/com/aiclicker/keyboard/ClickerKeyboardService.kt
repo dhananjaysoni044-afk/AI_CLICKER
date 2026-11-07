@@ -136,17 +136,18 @@ class ClickerKeyboardService : InputMethodService() {
             }
         }
         val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        listOf(if (symbols) "ABC" else "?123", ",", "🌐", "space", ".", "↵").forEach { label ->
-            bottom.addView(chip(label, size = 13f) {
-                when (label) {
-                    "?123" -> { symbols = true; showKeyboard() }
-                    "ABC" -> { symbols = false; showKeyboard() }
-                    "🌐" -> (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
-                    "space" -> commit(" ")
-                    "↵" -> commit("\n")
+        listOf(if (symbols) "ABC" else "?123", ",", "🌐", "␠ SPACE • 5/s", ".", "↵").forEach { label ->
+            val isSpace = label.startsWith("␠")
+            bottom.addView(chip(label, if (isSpace) accent else key, if (isSpace) 12f else 14f) {
+                when {
+                    label == "?123" -> { symbols = true; showKeyboard() }
+                    label == "ABC" -> { symbols = false; showKeyboard() }
+                    label == "🌐" -> (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+                    isSpace -> toggleSpaceRepeat()
+                    label == "↵" -> commit("\\n")
                     else -> commit(label)
                 }
-            }, LinearLayout.LayoutParams(0, dp(if (landscape) 36 else 43), if (label == "space") 3f else 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
+            }, LinearLayout.LayoutParams(0, dp(if (landscape) 38 else 46), if (isSpace) 3f else 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
         }
         content.addView(bottom)
     }
