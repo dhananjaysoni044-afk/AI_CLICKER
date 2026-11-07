@@ -27,6 +27,7 @@ class ClickerKeyboardService : InputMethodService() {
     private var shifted = false
     private var symbols = false
     private var savedText = ""
+    private var lastInsertedText = ""
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var repeatActive = false
     private var repeatRunnable: Runnable? = null
@@ -180,9 +181,28 @@ class ClickerKeyboardService : InputMethodService() {
             savedText = field.text.toString()
             if (savedText.isNotBlank()) {
                 val ok = currentInputConnection?.commitText(savedText, 1) ?: false
-                status.text = if (ok) "Text inserted once" else "No active text field"
+                if (ok) lastInsertedText = savedText
+                status.text = if (ok) "Text inserted once • ERASE LAST available" else "No active text field"
             } else status.text = "Enter text first"
         }, LinearParams(-1, 34))
+        p.addView(chip("ERASE LAST INSERTED TEXT", 0xFF8B3547.toInt(), 12f) {
+            val ic = currentInputConnection
+            if (ic == null) {
+                status.text = "Select the same text field first"
+            } else if (lastInsertedText.isBlank()) {
+                status.text = "Nothing to erase yet"
+            } else {
+                ic.deleteSurroundingText(lastInsertedText.length, 0)
+                status.text = "Last inserted text erased"
+                lastInsertedText = ""
+            }
+        }, LinearParams(-1, 34))
+        p.addView(chip("CLEAR SAVED TEXT", 0xFF55445F.toInt(), 12f) {
+            savedText = ""
+            lastInsertedText = ""
+            field.setText("")
+            status.text = "Saved text cleared"
+        }, LinearParams(-1, 32))
         val repeatButton = chip("START 🔵  •  2/sec", accent, 13f) {
             savedText = field.text.toString()
             if (repeatActive) {
@@ -207,6 +227,7 @@ class ClickerKeyboardService : InputMethodService() {
                             return
                         }
                         connection.commitText(savedText, 1)
+                        lastInsertedText = savedText
                         repeatHandler.postDelayed(this, 500L)
                     }
                 }
