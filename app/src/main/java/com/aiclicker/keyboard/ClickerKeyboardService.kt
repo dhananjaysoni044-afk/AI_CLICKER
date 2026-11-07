@@ -17,6 +17,8 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.os.Handler
+import android.os.Looper
 
 class ClickerKeyboardService : InputMethodService() {
     private lateinit var root: LinearLayout
@@ -25,6 +27,10 @@ class ClickerKeyboardService : InputMethodService() {
     private var shifted = false
     private var symbols = false
     private var savedText = ""
+    private val repeatHandler = Handler(Looper.getMainLooper())
+    private var repeatActive = false
+    private var repeatRunnable: Runnable? = null
+    private var repeatButtonLabel: TextView? = null
     private val bg = 0xFF171421.toInt()
     private val key = 0xFF302A3D.toInt()
     private val accent = 0xFF8E75FF.toInt()
@@ -170,17 +176,68 @@ class ClickerKeyboardService : InputMethodService() {
             setPadding(dp(8), dp(5), dp(8), dp(5))
         }
         p.addView(field, LinearParams(-1, if (landscape) 42 else 54))
-        p.addView(chip("INSERT TEXT ONCE", accent, 13f) {
+        p.addView(chip("INSERT ONCE", key, 12f) {
             savedText = field.text.toString()
             if (savedText.isNotBlank()) {
                 val ok = currentInputConnection?.commitText(savedText, 1) ?: false
-                status.text = if (ok) "Text inserted • Send manually" else "No active text field"
+                status.text = if (ok) "Text inserted once" else "No active text field"
             } else status.text = "Enter text first"
-        }, LinearParams(-1, 38))
+        }, LinearParams(-1, 34))
+        val repeatButton = chip("START 🔵  •  2/sec", accent, 13f) {
+            savedText = field.text.toString()
+            if (repeatActive) {
+                stopRepeating()
+                repeatButtonLabel?.text = "START 🔵  •  2/sec"
+            } else if (savedText.isBlank()) {
+                status.text = "Enter text first"
+            } else if (currentInputConnection == null) {
+                status.text = "Select a text field first"
+            } else {
+                repeatActive = true
+                repeatButtonLabel?.text = "STOP ■"
+                status.text = "Repeating saved text • 2 times/sec"
+                val task = object : Runnable {
+                    override fun run() {
+                        if (!repeatActive) return
+                        val connection = currentInputConnection
+                        if (connection == null) {
+                            stopRepeating()
+                            repeatButtonLabel?.text = "START 🔵  •  2/sec"
+                            status.text = "Stopped • no active text field"
+                            return
+                        }
+                        connection.commitText(savedText, 1)
+                        repeatHandler.postDelayed(this, 500L)
+                    }
+                }
+                repeatRunnable = task
+                repeatHandler.post(task)
+            }
+        }
+        repeatButtonLabel = repeatButton
+        p.addView(repeatButton, LinearParams(-1, 40))
         p.addView(TextView(this).apply {
-            text = "Text stays on this device. This inserts once; it does not press Send or post comments."
+            text = "Blue button repeats the saved text every 0.5 sec. Press STOP to end. It only types in the selected field; Send stays manual."
             textSize = 10f; setTextColor(0xFFD0C8DA.toInt()); gravity = Gravity.CENTER
-        }, LinearParams(-1, 30))
+        }, LinearParams(-1, 34))
+    }
+
+    private fun stopRepeating() {
+        repeatActive = false
+        repeatRunnable?.let { repeatHandler.removeCallbacks(it) }
+        repeatRunnable = null
+        status.text = "Repeating stopped"
+    }
+
+    override fun onFinishInputView(finishingInput: Boolean) {
+        stopRepeating()
+        super.onFinishInputView(finishingInput)
+    }
+
+    override fun onDestroy() {
+        stopRepeating()
+        repeatHandler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     private fun showTools() {
