@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#190d2b">
+<title>A Little Diwali Wish ✨</title>
+<style>
+:root{--gold:#ffd77a;--cream:#fff1d1;--pink:#ffb8c9}
+*{box-sizing:border-box}body{margin:0;min-height:100svh;color:var(--cream);font-family:Georgia,serif;background:radial-gradient(ellipse at 50% 15%,#57304d 0,#24132f 48%,#100b20 100%);overflow-x:hidden}
+#stars{position:fixed;inset:0;pointer-events:none;opacity:.7;background-image:radial-gradient(#fff 1px,transparent 1px),radial-gradient(#ffd77a 1px,transparent 1px);background-size:83px 83px,127px 127px;background-position:0 0,40px 20px}
+main{position:relative;min-height:100svh;display:grid;place-items:center;padding:32px 16px}
+.card{width:min(100%,540px);text-align:center;padding:38px 25px 32px;border:1px solid #f8d78b77;border-radius:28px;background:linear-gradient(145deg,#ffffff13,#ffffff06);box-shadow:0 20px 80px #0008,inset 0 0 35px #ffd77a0c;backdrop-filter:blur(8px)}
+.eyebrow{letter-spacing:.22em;text-transform:uppercase;font:11px Arial,sans-serif;color:#f5c978}
+h1{font-size:clamp(40px,10vw,64px);line-height:1.02;margin:16px 0 8px;color:var(--gold);text-shadow:0 0 25px #ffb43b55}
+.subtitle{font-style:italic;color:#ffe8c2;font-size:18px}
+.diya{font-size:68px;display:inline-block;filter:drop-shadow(0 0 20px #ffb43b);animation:glow 2.3s infinite alternate}
+@keyframes glow{to{filter:drop-shadow(0 0 34px #ffb43b);transform:translateY(-4px)}}
+.rule{width:90px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:24px auto}
+.message{font-size:18px;line-height:1.75;color:#fff0d9;min-height:110px}
+button{border:0;border-radius:999px;padding:14px 25px;margin-top:12px;background:linear-gradient(120deg,#ffe6a6,#e9a94f);color:#351b28;font-weight:bold;font-size:15px;box-shadow:0 7px 24px #e9a94f44;cursor:pointer}
+button:active{transform:scale(.98)}.hidden{display:none}.sign{margin-top:22px;color:#f7c9c4;font-style:italic;font-size:17px}
+footer{margin-top:26px;color:#d6b99a99;font:11px Arial,sans-serif;letter-spacing:.12em}
+.spark{position:fixed;bottom:-40px;font-size:24px;animation:rise linear infinite;opacity:0;pointer-events:none}
+@keyframes rise{10%{opacity:.9}100%{transform:translateY(-115vh) rotate(35deg);opacity:0}}
+#burst{position:fixed;inset:0;pointer-events:none}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body><div id="stars"></div><canvas id="burst"></canvas>
+<main><section class="card">
+<div class="eyebrow">A tiny surprise, made with warmth</div>
+<div class="diya" aria-hidden="true">🪔</div>
+<h1>Happy Diwali</h1>
+<div class="subtitle">A little light, a little happiness, a lot of good wishes ✨</div>
+<div class="rule"></div>
+<div class="message" id="message">May your days glow with happiness, your dreams find their way, and your home be filled with laughter, peace and beautiful little moments.</div>
+<button id="reveal" type="button">Open your little surprise 💌</button>
+<div id="extra" class="hidden">
+<div class="rule"></div>
+<div class="message">To a truly lovely person — keep being your cheerful, wonderful self. I hope this Diwali brings you countless reasons to smile. 🌸</div>
+<div class="sign">With warm wishes, always ♡</div>
+</div>
+<footer>MADE WITH A LITTLE EXTRA SPARKLE · DIWALI 2026</footer>
+</section></main>
+<script>
+const words=['✨','🌟','🪔','💫','🌸'];for(let i=0;i<22;i++){const s=document.createElement('span');s.className='spark';s.textContent=words[i%words.length];s.style.left=(Math.random()*100)+'%';s.style.animationDuration=(8+Math.random()*9)+'s';s.style.animationDelay=(-Math.random()*15)+'s';document.body.appendChild(s)}
+const btn=document.getElementById('reveal'),extra=document.getElementById('extra');btn.addEventListener('click',()=>{extra.classList.remove('hidden');btn.textContent='A little more light ✨';fireworks();});
+const c=document.getElementById('burst'),ctx=c.getContext('2d');let bits=[];function resize(){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}resize();addEventListener('resize',resize);
+function fireworks(){for(let k=0;k<5;k++){const x=innerWidth*(.2+Math.random()*.6),y=innerHeight*(.18+Math.random()*.35);for(let i=0;i<34;i++){const a=Math.PI*2*i/34,v=1.3+Math.random()*3;bits.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:55+Math.random()*20})}}}
+function draw(){ctx.clearRect(0,0,innerWidth,innerHeight);bits=bits.filter(p=>p.life-->0);for(const p of bits){p.x+=p.vx;p.y+=p.vy;p.vy+=.025;ctx.globalAlpha=Math.max(0,p.life/70);ctx.fillStyle=['#ffd77a','#ffb8c9','#fff1d1'][p.life%3|0];ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;requestAnimationFrame(draw)}draw();
+</script></body></html>
