@@ -2,50 +2,92 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#190d2b">
-<title>For Devanshi · A Little Diwali Wish ✨</title>
+<meta name="theme-color" content="#170d2c">
+<title>For Devanshi ✨ A Diwali Surprise</title>
 <style>
-:root{--gold:#ffd77a;--cream:#fff1d1;--pink:#ffb8c9}
-*{box-sizing:border-box}body{margin:0;min-height:100svh;color:var(--cream);font-family:Georgia,serif;background:radial-gradient(ellipse at 50% 15%,#57304d 0,#24132f 48%,#100b20 100%);overflow-x:hidden}
-#stars{position:fixed;inset:0;pointer-events:none;opacity:.7;background-image:radial-gradient(#fff 1px,transparent 1px),radial-gradient(#ffd77a 1px,transparent 1px);background-size:83px 83px,127px 127px;background-position:0 0,40px 20px}
-main{position:relative;min-height:100svh;display:grid;place-items:center;padding:32px 16px}
-.card{width:min(100%,540px);text-align:center;padding:38px 25px 32px;border:1px solid #f8d78b77;border-radius:28px;background:linear-gradient(145deg,#ffffff13,#ffffff06);box-shadow:0 20px 80px #0008,inset 0 0 35px #ffd77a0c;backdrop-filter:blur(8px)}
-.eyebrow{letter-spacing:.22em;text-transform:uppercase;font:11px Arial,sans-serif;color:#f5c978}
-h1{font-size:clamp(40px,10vw,64px);line-height:1.02;margin:16px 0 8px;color:var(--gold);text-shadow:0 0 25px #ffb43b55}
-.subtitle{font-style:italic;color:#ffe8c2;font-size:18px}
-.diya{font-size:68px;display:inline-block;filter:drop-shadow(0 0 20px #ffb43b);animation:glow 2.3s infinite alternate}
-@keyframes glow{to{filter:drop-shadow(0 0 34px #ffb43b);transform:translateY(-4px)}}
-.rule{width:90px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:24px auto}
-.message{font-size:18px;line-height:1.75;color:#fff0d9;min-height:110px}
-button{border:0;border-radius:999px;padding:14px 25px;margin-top:12px;background:linear-gradient(120deg,#ffe6a6,#e9a94f);color:#351b28;font-weight:bold;font-size:15px;box-shadow:0 7px 24px #e9a94f44;cursor:pointer}
-button:active{transform:scale(.98)}.hidden{display:none}.sign{margin-top:22px;color:#f7c9c4;font-style:italic;font-size:17px}
-footer{margin-top:26px;color:#d6b99a99;font:11px Arial,sans-serif;letter-spacing:.12em}
-.spark{position:fixed;bottom:-40px;font-size:24px;animation:rise linear infinite;opacity:0;pointer-events:none}
+:root{--gold:#ffd98a;--pink:#ffbfd0;--cream:#fff4df;--ink:#21142e}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--cream);font-family:Georgia,serif;background:radial-gradient(ellipse at 50% 0%,#68405e 0,#291832 48%,#100b20 100%);overflow-x:hidden}
+#stars{position:fixed;inset:0;pointer-events:none;opacity:.6;background-image:radial-gradient(#fff 1px,transparent 1px),radial-gradient(#ffd77a 1px,transparent 1px);background-size:83px 83px,127px 127px;background-position:0 0,40px 20px}
+main{position:relative;width:min(100% - 28px,760px);margin:auto;padding:30px 0 55px}
+.panel{margin:18px 0;padding:clamp(22px,5vw,38px);border:1px solid #f8d78b55;border-radius:26px;background:linear-gradient(145deg,#ffffff15,#ffffff08);box-shadow:0 18px 65px #0005;backdrop-filter:blur(8px);text-align:center}
+.kicker{font:11px Arial,sans-serif;letter-spacing:.24em;text-transform:uppercase;color:#f6d08b}
+h1{font-size:clamp(42px,10vw,76px);line-height:1.02;margin:15px 0;color:var(--gold);text-shadow:0 0 28px #ffb43b55}
+h2{font-size:clamp(25px,6vw,36px);color:var(--gold);margin:0 0 14px}
+.sub{font-style:italic;color:#ffe8c2;font-size:18px;line-height:1.6}
+.diya{font-size:72px;display:inline-block;filter:drop-shadow(0 0 18px #ffb43b);transition:.3s;cursor:pointer}.diya.lit{filter:drop-shadow(0 0 38px #ffb43b);transform:scale(1.12)}
+.rule{width:100px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:23px auto}
+.photo-frame{max-width:420px;margin:22px auto 8px;padding:9px;border-radius:22px;background:linear-gradient(135deg,#ffe3a1,#b97863,#ffe3a1);box-shadow:0 15px 45px #0007;transform:rotate(-1deg)}
+.photo-frame img{display:block;width:100%;max-height:570px;object-fit:cover;border-radius:15px}
+.caption{font-size:14px;color:#f6d9b6;font-style:italic;margin-top:15px}
+button{border:1px solid #ffdf9b88;border-radius:999px;padding:13px 19px;margin:7px;background:linear-gradient(125deg,#ffe6aa,#e7ad61);color:#351b28;font-weight:bold;font-size:14px;cursor:pointer;box-shadow:0 6px 22px #e9a94f33;transition:transform .18s,filter .18s}
+button:active{transform:scale(.96)}button:hover{filter:brightness(1.08)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+.grid button{margin:0;min-height:64px;border-radius:16px;line-height:1.35}
+.reveal{display:none;margin:18px auto 0;padding:18px;border:1px solid #ffd98a66;border-radius:18px;background:#140e26aa;color:#fff1d8;line-height:1.75;max-width:540px;animation:pop .35s ease}
+.reveal.show{display:block}@keyframes pop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+#scratch{width:min(100%,420px);height:130px;border-radius:16px;background:linear-gradient(135deg,#ffe5a5,#d99b59);color:#3b2030;display:grid;place-items:center;margin:18px auto;position:relative;overflow:hidden;touch-action:pan-y;cursor:crosshair}
+#scratch span{font: bold 17px Arial,sans-serif;padding:14px}#scratch small{position:absolute;bottom:8px;font:10px Arial,sans-serif;opacity:.7}
+footer{text-align:center;color:#d6b99a99;font:10px Arial,sans-serif;letter-spacing:.15em;padding:20px}
+#burst{position:fixed;inset:0;pointer-events:none;z-index:5}
+.float{position:fixed;bottom:-35px;font-size:22px;animation:rise linear infinite;opacity:0;pointer-events:none}
 @keyframes rise{10%{opacity:.9}100%{transform:translateY(-115vh) rotate(35deg);opacity:0}}
-#burst{position:fixed;inset:0;pointer-events:none}
+@media(max-width:420px){.grid{grid-template-columns:1fr}.panel{padding:23px 17px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body><div id="stars"></div><canvas id="burst"></canvas>
-<main><section class="card">
-<div class="eyebrow">A little Diwali surprise for Devanshi</div>
-<div class="diya" aria-hidden="true">🪔</div>
+<main>
+<section class="panel">
+<div class="kicker">A little festive surprise made for you</div>
+<div class="diya" id="diya" role="button" tabindex="0" aria-label="Light the diya">🪔</div>
 <h1>Happy Diwali,<br>Devanshi ✨</h1>
-<div class="subtitle">A little light, a little happiness, a lot of good wishes ✨</div>
+<p class="sub">May your world always have a little more light, laughter and magic.</p>
 <div class="rule"></div>
-<div class="message" id="message">May your days glow with happiness, your dreams find their way, and your home be filled with laughter, peace and beautiful little moments.</div>
-<button id="reveal" type="button">Open your little surprise 💌</button>
-<div id="extra" class="hidden">
-<div class="rule"></div>
-<div class="message">Dear Devanshi — may your smile stay bright, your dreams keep growing, and every little moment bring you happiness. Wishing you a beautiful Diwali filled with warmth, laughter and light. 🌸</div>
-<div class="sign">A little festive wish, just for you ♡</div>
+<p>Tap the diya to light it, then explore the surprises below 🌙</p>
+<button id="fireBtn">Make the sky sparkle 🎆</button>
+</section>
+<section class="panel">
+<div class="kicker">A little memory</div><h2>One lovely moment 📸</h2>
+<div class="photo-frame"><img src="golden-hour.jpg" alt="A warm golden-hour portrait of two people together"></div>
+<div class="caption">A golden little memory, saved with a festive wish ♡</div>
+</section>
+<section class="panel">
+<div class="kicker">Choose a surprise</div><h2>Six little gifts 🎁</h2>
+<p class="sub">Each button has a tiny surprise waiting inside.</p>
+<div class="grid">
+<button data-note="May every new day bring you reasons to smile, moments to be proud of, and people who cheer you on. 🌸">🌸 A wish for you</button>
+<button data-note="You deserve a sky full of stars, a heart full of courage, and dreams that keep getting bigger. ⭐">✨ A little reminder</button>
+<button data-note="Diwali mini-challenge: name three things that made you smile today. Keep those little joys close! 💛">🎯 Mini challenge</button>
+<button data-note="Sending a pocketful of sunshine, a sprinkle of sparkle, and lots of good vibes your way. ☀️">☀️ Pocket sunshine</button>
+<button data-note="May your home glow with peace, your days with happiness, and your year with beautiful new beginnings. 🪔">🪔 Festival blessing</button>
+<button data-note="Surprise unlocked! You are appreciated. Keep being curious, kind, and wonderfully yourself. 🎀">🎀 Secret message</button>
 </div>
-<footer>MADE WITH A LITTLE EXTRA SPARKLE · DIWALI 2026</footer>
-</section></main>
+<div class="reveal" id="gift" aria-live="polite"></div>
+</section>
+<section class="panel">
+<div class="kicker">A hidden note</div><h2>Scratch to reveal 💌</h2>
+<p class="sub">Rub your finger across the card to uncover the message.</p>
+<div id="scratch"><span>✨ A little surprise is hiding here ✨</span><small>SCRATCH HERE</small></div>
+<div class="reveal" id="scratchMsg">Wishing you a Diwali filled with warm moments, happy surprises and fresh beginnings. Keep shining, Devanshi! 💛</div>
+</section>
+<section class="panel">
+<div class="kicker">One last thing</div><h2>Make a little wish 🌠</h2>
+<p class="sub">Take a moment, make a wish, and tap below.</p>
+<button id="wishBtn">Send my wish into the sky 🌠</button>
+<div class="reveal" id="wishMsg">May this festive season bring your wish one step closer. ✨</div>
+</section>
+<footer>MADE WITH CARE & A LITTLE EXTRA SPARKLE · DIWALI 2026</footer>
+</main>
 <script>
-const words=['✨','🌟','🪔','💫','🌸'];for(let i=0;i<22;i++){const s=document.createElement('span');s.className='spark';s.textContent=words[i%words.length];s.style.left=(Math.random()*100)+'%';s.style.animationDuration=(8+Math.random()*9)+'s';s.style.animationDelay=(-Math.random()*15)+'s';document.body.appendChild(s)}
-const btn=document.getElementById('reveal'),extra=document.getElementById('extra');btn.addEventListener('click',()=>{extra.classList.remove('hidden');btn.textContent='A little more light ✨';fireworks();});
-const c=document.getElementById('burst'),ctx=c.getContext('2d');let bits=[];function resize(){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}resize();addEventListener('resize',resize);
-function fireworks(){for(let k=0;k<5;k++){const x=innerWidth*(.2+Math.random()*.6),y=innerHeight*(.18+Math.random()*.35);for(let i=0;i<34;i++){const a=Math.PI*2*i/34,v=1.3+Math.random()*3;bits.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:55+Math.random()*20})}}}
+const $=id=>document.getElementById(id);
+const icons=['✨','🌟','🪔','💫','🌸','🎇'];for(let i=0;i<24;i++){const s=document.createElement('span');s.className='float';s.textContent=icons[i%icons.length];s.style.left=Math.random()*100+'%';s.style.animationDuration=8+Math.random()*9+'s';s.style.animationDelay=-Math.random()*15+'s';document.body.appendChild(s)}
+$('diya').addEventListener('click',()=>{$('diya').classList.toggle('lit');fireworks()});$('diya').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('diya').click()}});
+document.querySelectorAll('[data-note]').forEach(b=>b.addEventListener('click',()=>{$('gift').textContent=b.dataset.note;$('gift').classList.add('show');fireworks()}));
+$('fireBtn').addEventListener('click',fireworks);$('wishBtn').addEventListener('click',()=>{$('wishMsg').classList.add('show');fireworks()});
+const scratch=$('scratch'),scratchMsg=$('scratchMsg');let scratched=false;
+function revealScratch(){if(!scratched){scratched=true;scratchMsg.classList.add('show');scratch.innerHTML='<span>🌟 Surprise revealed! 🌟</span>'}}
+scratch.addEventListener('pointerdown',revealScratch);scratch.addEventListener('pointermove',e=>{if(e.buttons)revealScratch()});
+const c=$('burst'),ctx=c.getContext('2d');let bits=[];function resize(){c.width=innerWidth*devicePixelRatio;c.height=innerHeight*devicePixelRatio;ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}resize();addEventListener('resize',resize);
+function fireworks(){for(let k=0;k<6;k++){const x=innerWidth*(.12+Math.random()*.76),y=innerHeight*(.12+Math.random()*.4);for(let i=0;i<42;i++){const a=Math.PI*2*i/42,v=1.1+Math.random()*3.3;bits.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:48+Math.random()*25})}}}
 function draw(){ctx.clearRect(0,0,innerWidth,innerHeight);bits=bits.filter(p=>p.life-->0);for(const p of bits){p.x+=p.vx;p.y+=p.vy;p.vy+=.025;ctx.globalAlpha=Math.max(0,p.life/70);ctx.fillStyle=['#ffd77a','#ffb8c9','#fff1d1'][p.life%3|0];ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;requestAnimationFrame(draw)}draw();
 </script></body></html>
